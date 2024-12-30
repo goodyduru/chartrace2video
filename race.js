@@ -162,6 +162,7 @@ class CanvasRecorder {
     }
 
     stop() {
+        this.mediaRecorder.requestData();
         // Use timer to allow buffer to clear
         setTimeout(() => { this.mediaRecorder.stop() }, 1000);
     }
@@ -172,14 +173,16 @@ class SVGViewer {
         this.container = document.getElementById("container");
         this.formatNumber = d3.format(",d");
         this.formatDate = d3.utcFormat("%Y");
-        let n = 12;
+        let n = parseInt(document.getElementById("num").value);
         this.dimensions = new Dimensions(n);
         this.canvasObj = new Canvas(this.dimensions);
         this.canvasRecorder = new CanvasRecorder(this.canvasObj.getStream());
         this.keyframes = [];
-        this.date_col = "date_col";
-        this.value_col = "value_col";
-        this.name_col = "name_col";
+        this.date_col = document.getElementById("date-col").value;
+        this.value_col = document.getElementById("value-col").value;
+        this.name_col = document.getElementById("label-col").value;
+        this.videoContainer = document.getElementById("video-container");
+        this.errors = [];
     }
 
     async race(file) {
@@ -188,6 +191,10 @@ class SVGViewer {
         }
         const fileContent = await file.text();
         this.parseData(fileContent);
+        if ( this.names === undefined ) {
+            this.showError();
+            return;
+        }
         let duration = 250;
         const svg = d3.create("svg").attr("viewBox", [0, 0, this.dimensions.width, this.dimensions.height]);
         this.canvasObj.observe(svg.node());
@@ -197,7 +204,7 @@ class SVGViewer {
         const updateTicker = this.ticker(svg);
         this.container.replaceChildren()
         this.container.appendChild(svg.node());
-        const recording = this.canvasRecorder.record(1000);
+        const recording = this.canvasRecorder.record(2000);
         for ( const keyframe of this.keyframes ) {
             const transition = svg.transition().duration(duration).ease(d3.easeLinear);
             this.dimensions.x.domain([0, keyframe[1][0].value]);
@@ -208,20 +215,36 @@ class SVGViewer {
             await transition.end();
         }
         this.canvasRecorder.stop();
-        var link$ = document.createElement('a')
-        link$.setAttribute('download','recordingVideo') 
-            recording.then(url => {
-            link$.setAttribute('href', url) 
-            link$.click()
-        });
+        this.showVideo(recording);
     }
 
     parseData(fileContent) {
         let data = d3.csvParse(fileContent, d3.autoType);
+        if ( !(this.date_col in data[0]) ) {
+            this.errors.push({name: "Date", given: this.date_col});
+        }
+        if ( !(this.value_col in data[0]) ) {
+            this.errors.push({name: "Value", given: this.value_col});
+        }
+
+        if ( !(this.name_col in data[0]) ) {
+            this.errors.push({name: "Label", given: this.name_col});
+        }
+
+        if ( this.errors.length > 0 ) {
+            return;
+        }
         this.names = new Set(data.map(d => d[this.name_col]));
-        let datevalues = Array.from(d3.rollup(data, ([d]) => d[this.value_col], d => +d[this.date_col], d => d[this.name_col]))
-            .map(([date, data]) => [new Date(date), data])
-            .sort(([a], [b]) => d3.ascending(a, b));
+        let rollup = Array.from(d3.rollup(data, ([d]) => d[this.value_col], d => +d[this.date_col], d => d[this.name_col]));
+        let maxDate = rollup[rollup.length-1][0];
+        let minDate = rollup[0][0];
+        let datevalues = rollup.map(([date, data]) => {
+            if ( maxDate < 3000 && maxDate != minDate ) {
+                return [new Date(date, 0, 2), data];
+            } else {
+                return [new Date(date), data];
+            }
+        }).sort(([a], [b]) => d3.ascending(a, b));
         this.generateKeyFrames(datevalues);
         let nameframes = d3.groups(this.keyframes.flatMap(([, data]) => data), d => d.name);
         this.prev = new Map(nameframes.flatMap(([, data]) => d3.pairs(data, (a, b) => [b, a])));
@@ -229,6 +252,12 @@ class SVGViewer {
     
         const scale = d3.scaleOrdinal(d3.schemeTableau10);
         this.color = d => scale(d.name);
+    }
+
+    showError() {
+        console.log(this.errors);
+        let errorMessage = this.errors.map((err) => `${err.name} header name isn't called ${err.given}`).join("\n");
+        alert(`${errorMessage}\n\nPlease ensure your header names exist in the csv file.`);
     }
 
     rank(value) {
@@ -250,7 +279,9 @@ class SVGViewer {
                 ]);
             }
         }
-        this.keyframes.push([new Date(kb), this.rank(name => b.get(name) || 0)]);
+        for ( let i = 0; i < 2; i++ ) {
+            this.keyframes.push([new Date(kb), this.rank(name => b.get(name) || 0)]);
+        }
     }
 
     bars(svg) {
@@ -333,16 +364,56 @@ class SVGViewer {
             transition.end().then(() => now.text(this.formatDate(date)));
         }
     }
+
+    showVideo(recording) {
+        recording.then(url => {
+            this.videoContainer.innerHTML = `<video controls src="${url}" width="${this.videoContainer.clientWidth}"></video>`;
+            this.videoContainer.scrollIntoView();
+        });
+    }
 }
 
 function addEventListeners() {
     const fileElement = document.getElementById("file");
+    const btnElement = document.getElementById("submit");
+    const numElement = document.getElementById("num");
+    const dateElement = document.getElementById("date-col");
+    const labelElement = document.getElementById("label-col");
+    const valueElement = document.getElementById("value-col");
+
+    function validInputs() {
+        let num = parseInt(numElement.value);
+        return ( !isNaN(num) && num > 0 && dateElement.value.trim() != "" && 
+            labelElement.value.trim() != "" && valueElement.value.trim() != "" && fileElement.files.length > 0 );
+    }
+
     fileElement.addEventListener('change', (e) => {
-        if ( fileElement.files.length > 0 ) {
-            let svgViewer = new SVGViewer();
-            svgViewer.race(fileElement.files[0])
+        if ( validInputs() ) {
+            btnElement.removeAttribute("disabled");
+        } else {
+            btnElement.setAttribute("disabled", "true");
         }
     });
+
+    [numElement, dateElement, labelElement, valueElement].forEach((el) => {
+        el.addEventListener("input", (event) => {
+            if ( validInputs() ) {
+                btnElement.removeAttribute("disabled");
+            } else {
+                btnElement.setAttribute("disabled", "true");
+            }
+        })
+    });
+
+    btnElement.addEventListener("click", (event) => {
+        event.preventDefault();
+        if ( !validInputs() ) {
+            return;
+        }
+        let svgViewer = new SVGViewer();
+        svgViewer.race(fileElement.files[0])
+    });
 }
+
 
 addEventListeners();
