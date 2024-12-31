@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width">
         <meta name="description" content="Convert chart race animation to a video">
-        <title>Race</title>
+        <title>Chart Race Video</title>
         <style>
             fieldset {
                 border: none;
@@ -29,6 +29,17 @@
 
             #container p {
                 color: #333;
+            }
+
+            pre {
+                padding: 1em;
+                white-space: pre-wrap;
+                overflow-x: hidden;
+                word-wrap: break-word;
+                line-height: 1.3;
+                background-color: #f8f9fa;
+                color: #101418;
+                border: 1px solid #dadde3;
             }
 
             @media screen and (min-width: 768px) {
@@ -62,25 +73,51 @@
     </head>
     <body>
         <section>
+            <p>Welcome to <strong>Chart Race Video</strong>. This allows you to convert a chart race animation to a video which you can share on other websites. All you need is a csv file and knowledge of the column headers. It works entirely on the browser. No server-side code is needed.</p>
+
+            <h3>How To Use</h3>
+            <p>
+                Your csv file should be structured in such a way that enables it to be used for time-based chart race. An example of one is:
+            </p>
+            <pre>date,name,category,value
+2000-01-01,Coca-Cola,Beverages,72537
+2000-01-01,Microsoft,Technology,70196
+2001-01-01,Coca-Cola,Beverages,68945
+2001-01-01,Microsoft,Technology,65068
+...
+...
+2019-01-01,Apple,Technology,234241
+2019-01-01,Google,Technology,167713
+            </pre>
+            <p>
+                You upload the csv file and fill in the required form fields in the form below. Ensure the right column headers are put in their respective form fields. Using the above csv as a template as an example, <em>date</em> will be typed into the <em>Date Column Header</em> form field, <em>name</em> will be typed into the <em>Label Column Header</em> form field and, <em>value</em> will be typed into the <em>Value Column Header</em> form field.
+            </p>
+            <p>
+                You click on record, and the chart race animation will display. While the animation is running, its video will be recorded by the browser. Once the animation is done, the video will be displayed below the animation. This video can be downloaded by you.
+            </p>
+            <p>Issues can be submitted in the project <a href="https://github.com/goodyduru/chartrace2video">repo</a>.</p>
+            <hr>
+        </section>
+        <section>
             <form>
                 <fieldset>
-                    <label for="file">Upload CSV file</label>
+                    <label for="file">Upload CSV file<sup>*</sup></label>
                     <input type="file" id="file" accept=".csv" required>
                 </fieldset>
                 <fieldset>
-                    <label for="num">Number of Bars:</label>
+                    <label for="num">Number of Bars:<sup>*</sup></label>
                     <input type="number" id="num" value="5" min="1" required>
                 </fieldset>
                 <fieldset>
-                    <label for="date-col">Date Column Header:</label>
+                    <label for="date-col">Date Column Header:<sup>*</sup></label>
                     <input type="text" id="date-col" value="date" required>
                 </fieldset>
                 <fieldset>
-                    <label for="label-col">Label Column Header:</label>
+                    <label for="label-col">Label Column Header:<sup>*</sup></label>
                     <input type="text" id="label-col" value="label" required>
                 </fieldset>
                 <fieldset>
-                    <label for="value-col">Value Column Header:</label>
+                    <label for="value-col">Value Column Header:<sup>*</sup></label>
                     <input type="text" id="value-col" value="value" required>
                 </fieldset>
                 <fieldset>
